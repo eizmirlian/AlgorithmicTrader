@@ -5,6 +5,7 @@ import tensorflow as tf
 from tensorflow import keras
 from keras import layers
 import torch
+import torch.utils.data as data
 from torch import nn
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
@@ -14,6 +15,14 @@ import datetime
 from bi_lstm import bi_lstm
 
 device = torch.device('cpu')
+
+#Hyperparameters
+LOOK_BACK = 80
+BATCH_SIZE = 30
+HIDDEN_SIZE = 30
+NUM_EPOCHS = 30
+LEARNING_RATE = .005
+
 
 def get_data(STOCK_NAMES):
     today_date = datetime.datetime.today()
@@ -36,11 +45,10 @@ def get_data(STOCK_NAMES):
         train_model(STOCK_NAMES[0], ticker_close_prices)
 
 def train_model(ticker_name, ticker_dataset):
-    NUM_EPOCHS = 10
-    LEARNING_RATE = .01
 
     scaler = MinMaxScaler()
     scaled_data = scaler.fit_transform(ticker_dataset.reshape(-1, 1))
+    #scaled_data = ticker_dataset.reshape(-1, 1)
     
     training_length = int(len(scaled_data) * .8)
     training_data = scaled_data[:training_length, :]
@@ -48,19 +56,20 @@ def train_model(ticker_name, ticker_dataset):
 
     x_train = []
     y_train = []
-    for i in range(training_length - 60):
-        x_train.append(training_data[i : i + 60, :])
-        y_train.append(training_data[i + 60, :])
+    for i in range(training_length - LOOK_BACK):
+        x_train.append(training_data[i : i + LOOK_BACK, :])
+        y_train.append(training_data[i + LOOK_BACK, :])
     x_test = []
-    y_test = ticker_dataset[training_length + 60 : ]
-    for j in range(len(testing_data) - 60):
-        x_test.append(testing_data[j : j + 60, :])
-    x_train, y_train, x_test, y_test = np.array(x_train).reshape(-1, 60), np.array(y_train).reshape(-1, 1), np.array(x_test).reshape(-1, 60), np.array(y_test)
-    x_train, x_test = x_train[:, np.newaxis, :], x_test[:, np.newaxis, :]
+    y_test = ticker_dataset[training_length + LOOK_BACK : ]
+    for j in range(len(testing_data) - LOOK_BACK):
+        x_test.append(testing_data[j : j + LOOK_BACK, :])
+    x_train, y_train, x_test, y_test = np.array(x_train).reshape(-1, LOOK_BACK), np.array(y_train).reshape(-1, 1), np.array(x_test).reshape(-1, LOOK_BACK), np.array(y_test)
+    x_train, x_test, y_train, y_test = torch.tensor(x_train, dtype= torch.float), torch.tensor(x_test, dtype= torch.float), torch.tensor(y_train, dtype = torch.float), torch.tensor(y_test, dtype= torch.float)
+
+    train_loader = data.DataLoader(data.TensorDataset(x_train, y_train), shuffle= True, batch_size= BATCH_SIZE)
+    test_loader = data.DataLoader(data.TensorDataset(x_test, y_test), shuffle= True, batch_size= BATCH_SIZE)
     
-    print(x_train.shape, len(x_train))
-    print(x_test.shape, len(x_test))
-    model = bi_lstm(60, 1, 20, 1)
+    model = bi_lstm(LOOK_BACK, BATCH_SIZE, HIDDEN_SIZE, 1)
 
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr= LEARNING_RATE, weight_decay=1e-5)
@@ -70,37 +79,46 @@ def train_model(ticker_name, ticker_dataset):
         model.train()
 
         sum_loss = 0
-        for input_ind in range(len(x_train)):
-            input = torch.tensor(x_train[input_ind, :, :], dtype= torch.float)
-            actual = torch.tensor(y_train[input_ind, :], dtype= torch.float).unsqueeze(1)
+        for X, y in train_loader:
+            y_pred = model(X)
+            final_x = []
+
+            for batch in X:
+                final_x.append(batch[-1].item())
+            final_x = torch.tensor(final_x, dtype= torch.float)
+            predicted_diff = (y_pred[:, 0] - final_x)
+            actual_diff = (y[:, 0] - final_x)
+
+            loss = loss_func(predicted_diff, actual_diff)
             optimizer.zero_grad()
-            pred = model(input)
-            loss = loss_func(pred, actual)
             loss.backward()
             sum_loss += loss.item()
             optimizer.step()
         print("Average Training Loss for Epoch " + str(epoch + 1) + ":", sum_loss / len(x_train))
 
         model.eval()
-        predictions = []
-        for test_ind in range(len(x_test)):
-            test_input = torch.tensor(x_test[test_ind, :, :], dtype= torch.float)
-            prediction = model(test_input)
-            predictions.append(prediction.detach().numpy()[0])
+        sum_err = 0
+        count = 0
+        with torch.no_grad():
+            for X, y in test_loader:
+                prediction = model(X)
+                scaled_prediction = torch.tensor(scaler.inverse_transform(prediction.detach().numpy()))
+                sum_err += rmse(scaled_prediction, y)
+                count += 1
+        
+        #scaled_predictions = predictions
 
-        scaled_predictions = scaler.inverse_transform(predictions)
-
-        print("Validation Loss for Epoch " + str(epoch + 1) + ":", rmse(scaled_predictions, y_test))
-    torch.save(model, "lstm_models\_" + ticker_name)
+        print("Validation Loss for Epoch " + str(epoch + 1) + ":", str(sum_err / count))
+    torch.save(model.state_dict(), "lstm_models\_" + ticker_name)
 
 def rmse(predicted, actual):
     diff = predicted - actual
-    mse = np.mean(diff)**2
-    return np.sqrt(mse)
+    mse = torch.mean(diff)**2
+    return torch.sqrt(mse)
 
 def evaluate_model(ticker):
     today_date = datetime.datetime.today()
-    delta = datetime.timedelta(days= 90)
+    delta = datetime.timedelta(days= 140)
     starting_date = today_date - delta
     start_data = str(starting_date).split()[0]
 
@@ -109,19 +127,31 @@ def evaluate_model(ticker):
 
     scaler = MinMaxScaler()
     test_data = scaler.fit_transform(close_prices.reshape(-1, 1))
+    #test_data = close_prices.reshape(-1, 1)
     test_input = []
 
-    for j in range(len(test_data) - 60):
-        test_input.append(test_data[j : j + 60, :])
+    for j in range(len(test_data) - LOOK_BACK):
+        test_input.append(test_data[j : j + LOOK_BACK, :])
     #print(test_input)
-    test_input = np.array(test_input).reshape(-1, 60)[:, :, np.newaxis]
+    test_input = torch.tensor(np.array(test_input).reshape(-1, LOOK_BACK), dtype = torch.float)
+    y_actual = torch.tensor(test_data[LOOK_BACK: ], dtype = torch.float)
 
-    model = keras.models.load_model("lstm_models\_" + ticker)
-    predictions = model.predict(test_input)
+    test_loader = data.DataLoader(data.TensorDataset(test_input, y_actual), shuffle= True, batch_size= BATCH_SIZE)
+
+    model = bi_lstm(LOOK_BACK, BATCH_SIZE, HIDDEN_SIZE, 1)
+    model.load_state_dict(torch.load("lstm_models\_" + ticker))
+    model.eval()
+
+    predictions = []
+    for X, y in test_loader:
+        prediction = model(X)
+        predictions.extend(prediction.detach().numpy())
+
     scaled_predictions = scaler.inverse_transform(predictions)
-    print(scaled_predictions[-1])
+    #scaled_predictions = predictions
+    #print(scaled_predictions)
 
-    validation = stock_data.filter(['Close'])[60: ]
+    validation = stock_data.filter(['Close'])[LOOK_BACK: ]
     validation['Predictions'] = scaled_predictions
     plt.figure(figsize=(16,8))
     plt.title(ticker)
@@ -133,33 +163,52 @@ def evaluate_model(ticker):
 
 def predict_future_prices(ticker):
     today_date = datetime.datetime.today()
-    delta = datetime.timedelta(days= 90)
+    delta = datetime.timedelta(days= LOOK_BACK * 2 + BATCH_SIZE)
     starting_date = today_date - delta
     start_data = str(starting_date).split()[0]
 
     stock_data = yf.download([ticker], start= start_data)
     close_prices = stock_data['Close'].values
 
-    model = keras.models.load_model("lstm_models\_" + ticker)
+    model = bi_lstm(LOOK_BACK, BATCH_SIZE, HIDDEN_SIZE, 1)
+    model.load_state_dict(torch.load("lstm_models\_" + ticker))
+    model.eval()
 
-    counter = 0
-    while counter < 5:
-        scaler = MinMaxScaler()
-        test_data = scaler.fit_transform(close_prices.reshape(-1, 1))
-        test_input = []
+    with torch.no_grad():
+        counter = 0
+        while counter < 5:
 
-        for j in range(len(test_data) - 60):
-            test_input.append(test_data[j : j + 60, 0])
-            #print(test_input)
+            scaler = MinMaxScaler()
+            test_data = scaler.fit_transform(close_prices.reshape(-1, 1))
 
-        test_input = np.array(test_input)[:, :, np.newaxis]
-        
-        predictions = model.predict(test_input)
-        scaled_predictions = scaler.inverse_transform(predictions)
-        print(scaled_predictions[-1])
-        close_prices = np.append(close_prices, scaled_predictions[-1])
+            i = BATCH_SIZE - 1
+            pred_input = []
+            while i >= 0:
+                pred_input.append(test_data[len(test_data) - LOOK_BACK - i : len(test_data) - i, :])
+                i -= 1
 
-        counter += 1
+            pred_input = np.array(pred_input).reshape(-1, LOOK_BACK)
+            pred_input = torch.tensor(pred_input, dtype= torch.float)
+            pred_loader = data.DataLoader(data.TensorDataset(pred_input, pred_input), batch_size= BATCH_SIZE)
 
+            sampled_predictions = []
+            for i in range(100):
+                model.dropout_on()
+
+                for X, y in pred_loader:
+                    prediction = model(X)
+                    prediction = prediction.detach().numpy()
+
+                scaled_predictions = scaler.inverse_transform(prediction)
+                #print(scaled_predictions[-1])
+                sampled_predictions.append(scaled_predictions[-1][0])
+
+            print(sampled_predictions, np.mean(sampled_predictions))
+
+
+            close_prices = np.append(close_prices, np.mean(sampled_predictions))
+            model.dropout_off()
+
+            counter += 1
 
 get_data(['GOOG'])
