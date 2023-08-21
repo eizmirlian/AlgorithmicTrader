@@ -2,9 +2,14 @@ import torch
 import torch.nn as nn
 import math
 
+#Hyperparameters
+LOOK_BACK = 80
+BATCH_SIZE = 30
+HIDDEN_SIZE = 30
+
 class bi_lstm(nn.Module):
 
-    def __init__(self, input_size, batch_size, hidden_size, output_size, num_layers= 3):
+    def __init__(self, input_size= LOOK_BACK, batch_size= BATCH_SIZE, hidden_size= HIDDEN_SIZE, output_size= 1, num_layers= 3):
         super(bi_lstm, self).__init__()
         self.input_size = input_size
         self.batch_size = batch_size
@@ -16,7 +21,7 @@ class bi_lstm(nn.Module):
 
         self.init_linear = nn.Linear(input_size, input_size)
 
-        self.lstm_layers = nn.LSTM(input_size, hidden_size, num_layers, bidirectional= True, batch_first= True, dropout= .2)
+        self.lstm_layers = nn.LSTM(input_size, hidden_size, num_layers, bidirectional= True, batch_first= True, dropout= .1)
 
         #self.tanh_act = nn.Tanh()
         self.mc_dropout = nn.Dropout1d(.1)

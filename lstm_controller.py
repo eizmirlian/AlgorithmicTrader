@@ -2,9 +2,8 @@ import pandas as pd
 import csv
 import lstm
 import datetime
-import tensorflow as tf
-from tensorflow import keras
-from keras import layers
+import torch
+from lstm_toolkit import bi_lstm
 
 def scan_models(stock_names):
     toTrain = []
@@ -16,7 +15,7 @@ def scan_models(stock_names):
         for row in reader:
             ticker = row["STOCK_NAME"]
             training_date = datetime.date.fromisoformat(row["LAST_TRAINED"])
-            week_delta = datetime.timedelta(days= 7)
+            week_delta = datetime.timedelta(days= 2)
             if ticker in stock_names:
                 if training_date + week_delta <= today:
                     toTrain.append(ticker)
@@ -32,13 +31,30 @@ def scan_models(stock_names):
         writer.writeheader()
         for stock_name in toWrite.keys():
             writer.writerow({"STOCK_NAME" : stock_name, "LAST_TRAINED" : toWrite[stock_name]})
-        lstm.get_data(toTrain)
+        lstm.get_models(toTrain)
 
 def evaluate_model(tickers):
     scan_models(tickers)
     for ticker in tickers:
-        model = keras.Model.load_weights("lstm_models\_" + ticker)
+        model = bi_lstm()
+        model.load_state_dict(torch.load("lstm_models\_" + ticker))
 
-scan_models(["PWR", "GOOGL", "PW", "GTLB"])
+def get_past_predictions(tickers, date):
+    pred_dict = {}
+    model_zoo = lstm.get_models(tickers, end_date= date)
+    for ticker in tickers:
+        pred_dict[ticker] = lstm.predict_future_prices(ticker, load= False, _model= model_zoo[ticker][0], _scaler= model_zoo[ticker][1], fromDate= date)
+    print(pred_dict)
+    return pred_dict
+
+def get_future_predictions(tickers):
+    pred_dict = {}
+    for ticker in tickers:
+        pred_dict[ticker] = lstm.predict_future_prices(ticker)
+    return pred_dict
+
+
+
+#scan_models(["PWR", "GOOGL", "PW", "GTLB"])
             
     
