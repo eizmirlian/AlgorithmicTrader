@@ -1,8 +1,7 @@
 import openai
-import datetime
+import statistics
 import web_scraping_toolkit as ws
 import time
-import numpy as np
 
 GPT_API_KEY = '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'
 
@@ -52,7 +51,7 @@ def generate_stock_supplement_scores(tickers):
                 counter += 1
                 if counter % 3 == 0:
                     time.sleep(60)
-            date_scores[ticker] = np.average(ticker_scores) if len(ticker_scores) > 0 else 0
+            date_scores[ticker] = statistics.mean(ticker_scores) if len(ticker_scores) > 0 else 0
         score_dict[date] = date_scores
     return score_dict
 

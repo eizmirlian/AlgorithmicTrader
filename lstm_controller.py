@@ -23,15 +23,18 @@ def scan_models(stock_names):
                 else:
                     toWrite[ticker] = row["LAST_TRAINED"]
                 preexisting.remove(ticker)
+            else:
+                toWrite[ticker] = row["LAST_TRAINED"]
         for stock in preexisting:
             toTrain.append(stock)
             toWrite[stock] = today.isoformat()
+    if len(toTrain) >= 1:
+        lstm.get_models(toTrain)
     with open("lstm_models\last_trained.csv", "w") as models_csv:
         writer = csv.DictWriter(models_csv, fieldnames= ["STOCK_NAME", "LAST_TRAINED"])
         writer.writeheader()
         for stock_name in toWrite.keys():
             writer.writerow({"STOCK_NAME" : stock_name, "LAST_TRAINED" : toWrite[stock_name]})
-        lstm.get_models(toTrain)
 
 def evaluate_model(tickers):
     scan_models(tickers)

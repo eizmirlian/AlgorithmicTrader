@@ -3,9 +3,8 @@ import sentiment_analysis
 import helper_stats
 import sentiment_analysis
 import json
-import numpy as np
 import time
-import pandas as pd
+import statistics
 import datetime
 
 def load_svm_data(tickers, dates, load = True):
@@ -54,14 +53,14 @@ def future_prediction_input(tickers):
     data = {}
     lstm_controller.scan_models(tickers)
     predictions = lstm_controller.get_future_predictions(tickers)
-    scores_needed = False
+    score_needed = False
     with open('market_sent_score_history.dat','r') as f:
         scores = json.load(f)
         stored_keys = scores.keys()
         if date_str in stored_keys:
             market_sent_score = scores[date_str]
         else:
-            scored_needed = True
+            score_needed = True
     if score_needed:
         market_sent_score = collect_market_sentiment_scores(sameDay = True)[date_str]
     score_needed = False
@@ -69,7 +68,7 @@ def future_prediction_input(tickers):
         scores = json.load(f)
         stored_keys = scores.keys()
         if date_str not in stored_keys:
-            scored_needed = True
+            score_needed = True
     if score_needed:
         collect_stock_sentiment_scores(tickers, today - week_delta)
     queried_scores = retrieve_stock_sent_scores(tickers, today)
@@ -77,7 +76,7 @@ def future_prediction_input(tickers):
     for ticker in tickers:
         future_pred = predictions[ticker]
         data[ticker] = {'Input':[]}
-        add_stats = helper_stats.get_helper_stats(ticker)
+        add_stats = helper_stats.get_helper_stats(ticker)[0]
 
         for day in future_pred:
             data[ticker]['Input'].append(str(day))
@@ -86,6 +85,7 @@ def future_prediction_input(tickers):
         
         for stat in add_stats:
             data[ticker]['Input'].append(str(stat))
+    print(data)
     return data
     
     
@@ -95,7 +95,7 @@ def collect_market_sentiment_scores(sameDay = False):
     scraped_sent_scores = {}
     if sameDay:
         scores, date = sentiment_analysis.generate_market_sentiment_scores()
-        avg_score = np.average(scores)
+        avg_score = statistics.average(scores)
         scraped_sent_scores[date] = avg_score
         load_json('market_sent_score_history.dat', scraped_sent_scores)
         time.sleep(60)
@@ -105,7 +105,7 @@ def collect_market_sentiment_scores(sameDay = False):
             market_update_link = 'https://www.schwab.com/learn/story/' + d + 's-schwab-market-update-podcast#'
             scores, date = sentiment_analysis.generate_market_sentiment_scores(link = market_update_link)
             if date not in scraped_sent_scores.keys():
-                avg_score = np.average(scores)
+                avg_score = statistics.average(scores)
                 scraped_sent_scores[date] = avg_score
             time.sleep(60)
         load_json('market_sent_score_history.dat', scraped_sent_scores)
@@ -119,7 +119,11 @@ def collect_stock_sentiment_scores(tickers, start):
         for publishing_date in date_scores.keys():
             if publishing_date in data.keys():
                 if ticker in data[publishing_date].keys():
-                    data[publishing_date][ticker].extend(date_scores[publishing_date])
+                    old_score = data[publishing_date][ticker]
+                    if old_score == 0:
+                        data[publishing_date][ticker] = date_scores[publishing_date]
+                    else:
+                        data[publishing_date][ticker] = (date_scores[publishing_date] + old_score) / 2
                 else:
                     data[publishing_date][ticker] = date_scores[publishing_date]
             else:
@@ -144,7 +148,7 @@ def retrieve_stock_sent_scores(tickers, date):
     for ticker in tickers:
         if ticker in toReturn.keys():
             if len(toReturn[ticker]) >= 1:
-                toReturn[ticker] = np.average(toReturn[ticker])
+                toReturn[ticker] = statistics.mean(toReturn[ticker])
         else:
             toReturn[ticker] = 0
     return toReturn
@@ -161,10 +165,10 @@ def load_json(filename, toLoad, override= False):
         json.dump(data, f, sort_keys= True)
 
 DATA_GEN_MODE = False
-MARKET_COLLECTION = True
-STOCK_COLLECTION = True
+MARKET_COLLECTION = False
+STOCK_COLLECTION = False
 
-dates_str = ['2023-08-09']
+dates_str = ['2023-08-11', '2023-08-14', '2023-08-15', '2023-08-16', '2023-08-17']
 dates = [datetime.date.fromisoformat(d) for d in dates_str]
 ticker_list = ['GOOG', 'MSFT', 'PWR', 'META', 'AMZN', 'AAPL', 'TSLA', 'T', 'AMD', 'COKE', 'DIS', 'NVDA', 'INTC', 'CVX', 'XOM', 'F', 'ROKU', 'PG', 'RUN']
 

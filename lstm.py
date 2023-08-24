@@ -22,14 +22,14 @@ NUM_EPOCHS = 150
 NUM_LAYERS = 3
 LEARNING_RATE = .01
 
-def get_models(STOCK_NAMES, end_date= datetime.datetime.today()):
+def get_models(STOCK_NAMES, end_date= datetime.date.today()):
 
     """Creates a dictionary of the requested models using train_model. Can be used to create models trained on older data to simulate what past predictions would look like. \n
     Parameters: \n STOCK_NAMES : (List[Str]) A list of stocks which will have models trained on their historical closing prices.
     \n end_date: (datetime.date object) An optional end date for the data the models are trained on (inclusive)"""
 
     model_zoo = {}
-    current = end_date == datetime.datetime.today()
+    current = end_date.isoformat() == datetime.date.today().isoformat()
 
     # Dates used to download the correct range of stock data. It is set to download and train the LSTM models on the 5 year price history
     delta = datetime.timedelta(days= 1825)
@@ -222,7 +222,7 @@ def predict_future_prices(ticker, load = True, _model = None, _scaler = None, fr
     if load:
         model = bi_lstm(LOOK_BACK, BATCH_SIZE, HIDDEN_SIZE, 1, NUM_LAYERS)
         model.load_state_dict(torch.load("lstm_models\_" + ticker))
-        scaler = joblib.load('lstm_models\_' + ticker + '_scaler')
+        #scaler = joblib.load('lstm_models\_' + ticker + '_scaler')
     elif _model != None and _scaler != None:
         model = _model
         scaler = _scaler
