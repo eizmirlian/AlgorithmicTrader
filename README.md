@@ -21,9 +21,9 @@ The system has only been tested on a subset of stocks that the svm was fit on, t
 
 ## How to Use
 
-If you've made it this far into the README, then you can probably assume I do not recommend using this system to make financial trading decisions. There is still a lot of testing and improvement to be done. That being said, if you would like to test it out for yourself, here are the steps you would need to take:
-    You MUST set your openAI API key in config.py
-    If you have a paid account, set free_version to False as well
-    Then, navigate to svm.py and set the tickers you want prediction for
-    If you are testing the classifier, set the dates you want it tested on as well
-    Run svm.py
+If you've made it this far into the README, then you can probably assume I do not recommend using this system to make financial trading decisions. There is still a lot of testing and improvement to be done. That being said, if you would like to test it out for yourself, here are the steps you would need to take:  
+1.)     You MUST set your openAI API key in config.py  
+2.)     If you have a paid account, set free_version to False as well  
+3.)     Then, navigate to svm.py and set the tickers you want prediction for  
+4.)     If you are testing the classifier, set the dates you want it tested on as well  
+5.)     Run svm.py
