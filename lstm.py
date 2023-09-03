@@ -265,7 +265,7 @@ def predict_future_prices(ticker, load = True, _model = None, _scaler = None, fr
             counter += 1
     return sample_preds
 
-#ticker_list = ['GOOG', 'PWR', 'VTI', 'MSFT', 'TSLA', 'NVDA']
+#ticker_list = ['GOOG', 'MSFT', 'NVDA']
 #get_models(ticker_list)
 #for t in ticker_list:
 #    evaluate_model(t)

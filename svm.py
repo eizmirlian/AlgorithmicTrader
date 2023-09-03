@@ -22,6 +22,7 @@ def read_stored_datset(data, labeled = True):
                 y.append(1 if label == 'Up' else 0)
     else:
         for stock in data.keys():
+            print(stock)
             input_output = data[stock]
             sample = input_output['Input']
             float_sample = []
@@ -44,9 +45,11 @@ def retrieve_dataset():
 def generate_prediction_sample(tickers, past, dates):
     if past:
         data = load_svm_data(tickers, dates, load = False)
+        return read_stored_datset(data, True)
     else:
         data = future_prediction_input(tickers)
-    return read_stored_datset(data, labeled = False)
+        return read_stored_datset(data, False)
+    
 
 def fit_svc(X, y):
     svc_scaler = preprocessing.StandardScaler()
@@ -63,13 +66,38 @@ def test_svc(ticker_list, dates):
     y_pred = classifier.predict(X_norm)
     num_correct = 0
     num_total = 0
+    correct_pos = 0
+    correct_neg = 0
+    incorrect_pos = 0
+    incorrect_neg = 0
+    total_pos = 0
+    total_neg = 0
     for i in range(y_test.size):
         print(y_test[i], y_pred[i])
         if y_test[i] == y_pred[i]:
             num_correct += 1
+            if y_test[i] == 1:
+                correct_pos += 1
+                total_pos += 1
+            else:
+                correct_neg += 1
+                total_neg += 1
+        else:
+            if y_test[i] == 1:
+                incorrect_pos += 1
+                total_pos += 1
+            else:
+                incorrect_neg += 1
+                total_neg += 1
         num_total += 1
     accuracy = num_correct / num_total
-    print(accuracy)
+    print("Accuracy: ", accuracy)
+    print("Correct Positive Inferences: ", correct_pos)
+    print("Correct Negative Inferences: ", correct_neg)
+    print("Positive Inference Sensitivity: ", correct_pos / total_pos)
+    print("Negative Inference Sensitivity: ", correct_neg / total_neg)
+    print('Positive Inference Accuracy: ', correct_pos / (correct_pos + incorrect_pos))
+    print('Negative Inference Accuracy: ', correct_neg / (correct_neg + incorrect_neg))
 
 def predict_future(ticker_list):
     X_train, y_train = retrieve_dataset()
@@ -83,7 +111,18 @@ def predict_future(ticker_list):
 
 
 
-
+#Put the tickers you would like to perform prediction on in here
 ticker_list = ['GOOG', 'MSFT', 'AMZN', 'META', 'COKE', 'NVDA', 'AMD']
-dates = [datetime.date.fromisoformat('2023-08-01')]
-predict_future(ticker_list)
+
+#If you are testing the classifier on labeled days (i.e. three market days since that day have passed), specify the dates here in YYYY-MM-dd format
+dates = ['2023-08-18', '2023-08-24', '2023-08-25', '2023-08-28', '2023-08-29']
+
+dates = [datetime.date.fromisoformat(d) for d in dates]
+
+
+#UNCOMMENT THIS TO TEST THE CLASSIFIER
+#test_svc(ticker_list, dates)
+
+
+#UNCOMMENT THIS TO RUN PREDICTION FOR THE CLOSING PRICE THREE DAYS FROM TODAY
+#predict_future(ticker_list)

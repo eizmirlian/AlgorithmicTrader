@@ -6,6 +6,9 @@ import json
 import time
 import statistics
 import datetime
+from config import get_config_params
+
+free_version = get_config_params()[1]
 
 def load_svm_data(tickers, dates, load = True):
     toLoad = {}
@@ -85,7 +88,7 @@ def future_prediction_input(tickers):
         
         for stat in add_stats:
             data[ticker]['Input'].append(str(stat))
-    print(data)
+    #print(data)
     return data
     
     
@@ -95,25 +98,28 @@ def collect_market_sentiment_scores(sameDay = False):
     scraped_sent_scores = {}
     if sameDay:
         scores, date = sentiment_analysis.generate_market_sentiment_scores()
-        avg_score = statistics.average(scores)
+        avg_score = statistics.mean(scores)
         scraped_sent_scores[date] = avg_score
         load_json('market_sent_score_history.dat', scraped_sent_scores)
-        time.sleep(60)
+        if free_version:
+            time.sleep(60)
         return scraped_sent_scores
     else:
         for d in days:
             market_update_link = 'https://www.schwab.com/learn/story/' + d + 's-schwab-market-update-podcast#'
             scores, date = sentiment_analysis.generate_market_sentiment_scores(link = market_update_link)
             if date not in scraped_sent_scores.keys():
-                avg_score = statistics.average(scores)
+                avg_score = statistics.mean(scores)
                 scraped_sent_scores[date] = avg_score
-            time.sleep(60)
+            if free_version:
+                time.sleep(60)
         load_json('market_sent_score_history.dat', scraped_sent_scores)
         
 
 def collect_stock_sentiment_scores(tickers, start):
     data = sentiment_analysis.generate_stock_supplement_scores(tickers)
-    time.sleep(60)
+    if free_version:
+        time.sleep(60)
     for ticker in tickers:
         date_scores = sentiment_analysis.generate_stock_sentiment_scores(ticker, start)
         for publishing_date in date_scores.keys():

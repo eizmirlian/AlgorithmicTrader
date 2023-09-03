@@ -47,7 +47,7 @@ def get_past_predictions(tickers, date):
     model_zoo = lstm.get_models(tickers, end_date= date)
     for ticker in tickers:
         pred_dict[ticker] = lstm.predict_future_prices(ticker, load= False, _model= model_zoo[ticker][0], _scaler= model_zoo[ticker][1], fromDate= date)
-    print(pred_dict)
+    #print(pred_dict)
     return pred_dict
 
 def get_future_predictions(tickers):

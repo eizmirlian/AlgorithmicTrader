@@ -2,8 +2,16 @@ import openai
 import statistics
 import web_scraping_toolkit as ws
 import time
+from config import get_config_params
 
-GPT_API_KEY = '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'
+params = get_config_params()
+
+if params == 'OpenAI API Key not set':
+    raise Exception('OpenAI API Key not set, please set that in config.py')
+else:
+    GPT_API_KEY = params[0]
+    free_version = params[1]
+    
 
 def generate_stock_sentiment_scores(ticker, start = None):
     counter = 0
@@ -20,9 +28,10 @@ def generate_stock_sentiment_scores(ticker, start = None):
             if new_score != 0:
                 scores[date] = new_score
             counter += 1
-            if counter % 3 == 0:
+            if free_version and counter % 3 == 0:
                 time.sleep(60)
-    time.sleep(60)
+    if free_version:
+        time.sleep(60)
     return scores
 
 def generate_market_sentiment_scores(link = None):
@@ -49,7 +58,7 @@ def generate_stock_supplement_scores(tickers):
                 score = gpt_sentiment_analysis([ticker, blurb], MODE = 'STOCK_SUPP')
                 ticker_scores.append(score)
                 counter += 1
-                if counter % 3 == 0:
+                if free_version and counter % 3 == 0:
                     time.sleep(60)
             date_scores[ticker] = statistics.mean(ticker_scores) if len(ticker_scores) > 0 else 0
         score_dict[date] = date_scores
@@ -57,6 +66,7 @@ def generate_stock_supplement_scores(tickers):
 
 def gpt_sentiment_analysis(content, MODE):
     openai.api_key = GPT_API_KEY
+    print(content)
     if MODE == 'MARKET':
         summary = content[0]
         paragraph = content[1]
