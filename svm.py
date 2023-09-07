@@ -106,8 +106,8 @@ def predict_future(ticker_list):
     X_norm = scaler.transform(X_in)
     y_pred = classifier.predict(X_norm)
     for i in range(y_pred.size):
-        movement = 'up by at least 1%' if y_pred[i] == 1 else 'stay the same or down'
-        print(ticker_list[i] + ' predicted to go ' + movement)
+        movement = 'go up by at least 1%' if y_pred[i] == 1 else 'stay the same or go down'
+        print(ticker_list[i] + ' predicted to ' + movement)
 
 
 
@@ -125,4 +125,4 @@ dates = [datetime.date.fromisoformat(d) for d in dates]
 
 
 #UNCOMMENT THIS TO RUN PREDICTION FOR THE CLOSING PRICE THREE DAYS FROM TODAY
-#predict_future(ticker_list)
+predict_future(ticker_list)

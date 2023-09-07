@@ -30,7 +30,6 @@ def scrape_stock_news(ticker, date= datetime.date.today()):
         if published > date - week_delta:
             news[published.isoformat()] = header_summary[index]
         index += 1
-    print(news)
     return news
 
 def scrape_market_news(link = 'https://www.schwab.com/learn/story/schwab-market-update', transcript = False):
